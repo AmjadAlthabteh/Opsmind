@@ -149,23 +149,89 @@ RECENT EVENTS ({len(events)} total):
         }
 
     def _fallback_analysis(self, incident: Incident, events: List[Event]) -> Dict:
-        """Fallback analysis when AI is not available"""
+        """Fallback analysis when AI is not available (Demo Mode)"""
         error_events = [e for e in events if e.level == "error"]
+        warning_events = [e for e in events if e.level == "warning"]
 
-        actions = [
-            "Review error logs and stack traces",
-            "Check system resource utilization (CPU, memory, disk)",
-            "Verify external service dependencies",
-            "Review recent code deployments or configuration changes",
-        ]
+        # Extract text for pattern matching
+        text = (incident.title + " " + incident.description).lower()
 
-        if "database" in incident.title.lower() or "database" in incident.description.lower():
-            actions.insert(0, "Check database connection pool and query performance")
+        # Smart pattern-based suggestions
+        actions = []
+        root_cause = "Pattern-based analysis (Demo Mode - add OpenAI API key for AI analysis)"
+
+        # Database issues
+        if any(word in text for word in ["database", "db", "postgres", "mysql", "connection", "query"]):
+            root_cause = "Database connectivity or performance issue detected"
+            actions = [
+                "Check database connection pool utilization and increase if needed",
+                "Review slow query logs for performance bottlenecks",
+                "Verify database server health (CPU, memory, disk I/O)",
+                "Check for table locks or long-running transactions",
+                "Review recent schema changes or migrations"
+            ]
+
+        # Memory issues
+        elif any(word in text for word in ["memory", "ram", "heap", "oom", "out of memory"]):
+            root_cause = "Memory-related issue detected"
+            actions = [
+                "Check heap memory usage and increase allocation if needed",
+                "Review memory leak detection tools output",
+                "Analyze heap dumps for memory leaks",
+                "Check for memory-intensive operations or caching issues",
+                "Review JVM/application memory settings"
+            ]
+
+        # API/Network issues
+        elif any(word in text for word in ["api", "http", "timeout", "502", "503", "504", "network"]):
+            root_cause = "API or network connectivity issue detected"
+            actions = [
+                "Check API endpoint health and response times",
+                "Verify network connectivity to external services",
+                "Review rate limiting and throttling settings",
+                "Check load balancer and proxy configuration",
+                "Verify DNS resolution and routing"
+            ]
+
+        # Cache issues
+        elif any(word in text for word in ["cache", "redis", "memcached"]):
+            root_cause = "Cache system issue detected"
+            actions = [
+                "Check cache hit rate and memory utilization",
+                "Verify cache cluster health and connectivity",
+                "Review cache eviction policies and TTL settings",
+                "Check for cache key expiration issues",
+                "Restart cache service if needed"
+            ]
+
+        # Disk/Storage issues
+        elif any(word in text for word in ["disk", "storage", "space", "volume", "filesystem"]):
+            root_cause = "Disk or storage issue detected"
+            actions = [
+                "Check disk space utilization on all volumes",
+                "Review log file sizes and rotate if needed",
+                "Check for large temporary files",
+                "Verify I/O performance metrics",
+                "Clean up old backups or unused data"
+            ]
+
+        # Default generic actions
+        else:
+            root_cause = f"General incident analysis - {len(error_events)} errors, {len(warning_events)} warnings detected"
+            actions = [
+                "Review error logs and stack traces for root cause",
+                "Check system resource utilization (CPU, memory, disk)",
+                "Verify external service dependencies and connectivity",
+                "Review recent code deployments or configuration changes",
+                "Check monitoring dashboards for anomalies"
+            ]
+
+        summary = f"Demo Mode Analysis: {root_cause}. Found {len(error_events)} error events and {len(warning_events)} warnings."
 
         return {
-            "summary": f"Detected {len(error_events)} error events. Manual investigation recommended.",
-            "root_cause": "Analysis pending - AI Commander not available",
-            "actions": actions,
+            "summary": summary,
+            "root_cause": root_cause,
+            "actions": actions[:5],  # Limit to 5 actions
             "similar_incidents": [],
         }
 
