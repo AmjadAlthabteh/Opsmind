@@ -112,13 +112,63 @@ Perfect for showcasing skills to employers in **SRE**, **backend development**, 
 
 ## 🚀 Quick Start
 
+### 🎯 Super Easy Start (Recommended for First-Time Users)
+
+**Just want to try it? Run ONE command!**
+
+```bash
+# Linux/Mac
+./quickstart.sh
+
+# Windows
+quickstart.bat
+```
+
+This will:
+1. ✅ Auto-install all dependencies
+2. ✅ Load demo incidents
+3. ✅ Start backend & frontend
+4. ✅ Open your browser automatically
+
+**No OpenAI API key needed!** Works in demo mode with intelligent pattern-based analysis.
+
+---
+
 ### Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- OpenAI API Key (optional, for AI features)
+- OpenAI API Key (optional - works without it in demo mode!)
 
-### Option 1: Local Development
+### Option 1: Automated Setup (Easiest)
+
+Run the setup script once:
+
+```bash
+# Linux/Mac
+./setup.sh
+
+# Windows
+setup.bat
+```
+
+This installs everything! Then run:
+
+```bash
+# Linux/Mac
+./quickstart.sh
+
+# Windows
+quickstart.bat
+```
+
+Done! 🎉
+
+- Backend: **http://localhost:8000**
+- Frontend: **http://localhost:3000**
+- API Docs: **http://localhost:8000/api/docs**
+
+### Option 2: Manual Setup
 
 #### Backend
 
@@ -127,20 +177,10 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Create .env file
 cp .env.example .env
-# Add your OPENAI_API_KEY to .env
-
-# Load demo data
 python seed_data.py
-
-# Run server
 python run.py
 ```
-
-Backend runs at: **http://localhost:8000**
-API Docs: **http://localhost:8000/api/docs**
 
 #### Frontend
 
@@ -150,9 +190,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at: **http://localhost:3000**
-
-### Option 2: Docker Compose
+### Option 3: Docker Compose
 
 ```bash
 # Set environment variables
@@ -168,7 +206,7 @@ Services:
 - Prometheus: **http://localhost:9090**
 - Grafana: **http://localhost:3001**
 
-### Option 3: Makefile
+### Option 4: Makefile
 
 ```bash
 make install  # Install dependencies
@@ -184,6 +222,7 @@ make docker-up  # Start with Docker
 - **[API Documentation](docs/API.md)** - Complete REST API reference
 - **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and data flow
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Docker, K8s, AWS, GCP deployment
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Contributing](CONTRIBUTING.md)** - How to contribute
 
 ---
