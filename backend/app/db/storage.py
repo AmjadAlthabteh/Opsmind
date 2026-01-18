@@ -1,23 +1,36 @@
 from typing import Dict, List, Optional
 from datetime import datetime
+import logging
+from threading import Lock
 from ..models import Incident, Event, TimelineEntry, Action, IncidentStatus
+
+logger = logging.getLogger(__name__)
 
 
 class InMemoryStorage:
-    """In-memory storage for incidents, events, and actions"""
+    """In-memory storage for incidents, events, and actions with thread-safe operations"""
 
     def __init__(self):
         self.incidents: Dict[str, Incident] = {}
         self.events: Dict[str, Event] = {}
         self.timeline: Dict[str, List[TimelineEntry]] = {}
         self.actions: Dict[str, Action] = {}
+        self._lock = Lock()  # Thread safety for concurrent access
 
     # Incident operations
     def create_incident(self, incident: Incident) -> Incident:
-        """Create a new incident"""
-        self.incidents[incident.id] = incident
-        self.timeline[incident.id] = []
-        return incident
+        """Create a new incident with thread-safe operation"""
+        try:
+            with self._lock:
+                if incident.id in self.incidents:
+                    logger.warning(f"Incident {incident.id} already exists, overwriting")
+                self.incidents[incident.id] = incident
+                self.timeline[incident.id] = []
+                logger.debug(f"Created incident {incident.id}")
+            return incident
+        except Exception as e:
+            logger.error(f"Failed to create incident: {e}")
+            raise
 
     def get_incident(self, incident_id: str) -> Optional[Incident]:
         """Get incident by ID"""
@@ -33,17 +46,26 @@ class InMemoryStorage:
         return incidents[:limit]
 
     def update_incident(self, incident_id: str, updates: dict) -> Optional[Incident]:
-        """Update incident fields"""
-        incident = self.incidents.get(incident_id)
-        if not incident:
-            return None
+        """Update incident fields with thread-safe operation"""
+        try:
+            with self._lock:
+                incident = self.incidents.get(incident_id)
+                if not incident:
+                    logger.warning(f"Incident {incident_id} not found for update")
+                    return None
 
-        for key, value in updates.items():
-            if hasattr(incident, key):
-                setattr(incident, key, value)
+                for key, value in updates.items():
+                    if hasattr(incident, key):
+                        setattr(incident, key, value)
+                    else:
+                        logger.warning(f"Invalid field '{key}' for incident update")
 
-        incident.updated_at = datetime.utcnow()
-        return incident
+                incident.updated_at = datetime.utcnow()
+                logger.debug(f"Updated incident {incident_id}")
+                return incident
+        except Exception as e:
+            logger.error(f"Failed to update incident {incident_id}: {e}")
+            raise
 
     # Event operations
     def create_event(self, event: Event) -> Event:
