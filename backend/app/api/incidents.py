@@ -23,39 +23,45 @@ async def create_incident(
     background_tasks: BackgroundTasks
 ) -> Incident:
     """Create a new incident and trigger AI analysis"""
+    try:
+        # Create incident
+        incident = Incident(
+            title=incident_data.title,
+            description=incident_data.description,
+            severity=incident_data.severity,
+            source=incident_data.source,
+            tags=incident_data.tags,
+            metadata=incident_data.metadata,
+        )
 
-    # Create incident
-    incident = Incident(
-        title=incident_data.title,
-        description=incident_data.description,
-        severity=incident_data.severity,
-        source=incident_data.source,
-        tags=incident_data.tags,
-        metadata=incident_data.metadata,
-    )
+        # Save to storage
+        storage.create_incident(incident)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create incident: {str(e)}")
 
-    # Save to storage
-    storage.create_incident(incident)
+    try:
+        # Add timeline entry
+        timeline_entry = TimelineEntry(
+            incident_id=incident.id,
+            entry_type=TimelineEntryType.STATUS_CHANGE,
+            title="Incident created",
+            description=f"Incident created from {incident.source}",
+            actor=incident.source,
+        )
+        storage.add_timeline_entry(timeline_entry)
 
-    # Add timeline entry
-    timeline_entry = TimelineEntry(
-        incident_id=incident.id,
-        entry_type=TimelineEntryType.STATUS_CHANGE,
-        title="Incident created",
-        description=f"Incident created from {incident.source}",
-        actor=incident.source,
-    )
-    storage.add_timeline_entry(timeline_entry)
-
-    # Update metrics
-    incidents_created.labels(
-        severity=incident.severity.value,
-        source=incident.source
-    ).inc()
-    active_incidents.labels(
-        severity=incident.severity.value,
-        status=incident.status.value
-    ).inc()
+        # Update metrics
+        incidents_created.labels(
+            severity=incident.severity.value,
+            source=incident.source
+        ).inc()
+        active_incidents.labels(
+            severity=incident.severity.value,
+            status=incident.status.value
+        ).inc()
+    except Exception as e:
+        # Log error but don't fail the request
+        print(f"Warning: Failed to update timeline or metrics: {e}")
 
     # Trigger AI analysis in background
     # background_tasks.add_task(analyze_incident, incident.id)
