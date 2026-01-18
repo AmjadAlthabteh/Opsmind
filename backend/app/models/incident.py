@@ -26,12 +26,12 @@ class IncidentSeverity(str, Enum):
 
 class IncidentCreate(BaseModel):
     """Request model for creating an incident"""
-    title: str = Field(..., min_length=5, max_length=200)
-    description: str = Field(..., min_length=10)
+    title: str = Field(..., min_length=5, max_length=200, description="Clear, descriptive incident title")
+    description: str = Field(..., min_length=10, max_length=5000, description="Detailed incident description")
     severity: IncidentSeverity = IncidentSeverity.MEDIUM
-    source: str = Field(default="manual", description="Source of the incident (manual, alert, log)")
-    tags: List[str] = Field(default_factory=list)
-    metadata: dict = Field(default_factory=dict)
+    source: str = Field(default="manual", max_length=100, description="Source of the incident (manual, alert, log)")
+    tags: List[str] = Field(default_factory=list, max_length=20, description="Incident tags for categorization")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata")
 
 
 class Incident(BaseModel):
