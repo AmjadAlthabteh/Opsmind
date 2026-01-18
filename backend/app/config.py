@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str = ""
 
+    # CORS
+    cors_origins: str = "*"  # Comma-separated list of allowed origins
+
     # Rate Limiting
     rate_limit_per_minute: int = 100
 
