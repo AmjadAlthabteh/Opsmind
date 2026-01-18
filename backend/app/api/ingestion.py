@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
+import logging
 
 from ..models import Event, EventCreate
 from ..db.storage import storage
 from ..observability.metrics import events_ingested
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
 
@@ -41,35 +43,51 @@ async def ingest_event(event_data: EventCreate) -> Event:
 
 @router.post("/events/batch", response_model=List[Event], status_code=201)
 async def ingest_events_batch(events_data: List[EventCreate]) -> List[Event]:
-    """Ingest multiple events in batch"""
+    """Ingest multiple events in batch with validation"""
+
+    # Validate batch size to prevent abuse
+    if len(events_data) > 1000:
+        raise HTTPException(status_code=400, detail="Batch size exceeds maximum of 1000 events")
+
+    if len(events_data) == 0:
+        raise HTTPException(status_code=400, detail="Batch cannot be empty")
 
     created_events = []
+    errors = []
 
-    for event_data in events_data:
-        # Verify incident exists
-        incident = storage.get_incident(event_data.incident_id)
-        if not incident:
-            continue  # Skip invalid incidents in batch
+    for idx, event_data in enumerate(events_data):
+        try:
+            # Verify incident exists
+            incident = storage.get_incident(event_data.incident_id)
+            if not incident:
+                errors.append(f"Event {idx}: Incident not found")
+                continue
 
-        # Create event
-        event = Event(
-            incident_id=event_data.incident_id,
-            event_type=event_data.event_type,
-            message=event_data.message,
-            level=event_data.level,
-            source=event_data.source,
-            metadata=event_data.metadata,
-        )
+            # Create event
+            event = Event(
+                incident_id=event_data.incident_id,
+                event_type=event_data.event_type,
+                message=event_data.message,
+                level=event_data.level,
+                source=event_data.source,
+                metadata=event_data.metadata,
+            )
 
-        # Save to storage
-        storage.create_event(event)
-        created_events.append(event)
+            # Save to storage
+            storage.create_event(event)
+            created_events.append(event)
 
-        # Update metrics
-        events_ingested.labels(
-            event_type=event.event_type.value,
-            source=event.source
-        ).inc()
+            # Update metrics
+            events_ingested.labels(
+                event_type=event.event_type.value,
+                source=event.source
+            ).inc()
+        except Exception as e:
+            logger.error(f"Failed to process event {idx}: {e}")
+            errors.append(f"Event {idx}: {str(e)}")
+
+    if errors:
+        logger.warning(f"Batch ingestion completed with {len(errors)} errors")
 
     return created_events
 
