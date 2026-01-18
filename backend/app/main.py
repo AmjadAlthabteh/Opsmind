@@ -57,8 +57,30 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Health check endpoint with component status"""
+    from .db.storage import storage
+    from .ai.commander import ai_commander
+
+    health_status = {
+        "status": "healthy",
+        "version": "1.0.0",
+        "components": {
+            "storage": "operational",
+            "ai_commander": "operational" if ai_commander.enabled else "fallback_mode",
+        }
+    }
+
+    # Check if we have any incidents in storage
+    try:
+        incidents_count = len(storage.incidents)
+        health_status["metrics"] = {
+            "total_incidents": incidents_count
+        }
+    except Exception:
+        health_status["components"]["storage"] = "degraded"
+        health_status["status"] = "degraded"
+
+    return health_status
 
 
 @app.get("/metrics")
