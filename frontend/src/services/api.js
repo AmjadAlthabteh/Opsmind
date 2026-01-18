@@ -10,6 +10,16 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout for all requests
 });
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred';
+    console.error('API Error:', errorMessage);
+    return Promise.reject(new Error(errorMessage));
+  }
+);
+
 // Incidents
 export const getIncidents = async (status = null) => {
   const params = status ? { status } : {};
