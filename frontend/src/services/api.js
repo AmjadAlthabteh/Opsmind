@@ -58,7 +58,8 @@ export const ingestEvent = async (eventData) => {
 
 // WebSocket
 export const connectToIncidentRoom = (incidentId, onMessage) => {
-  const wsUrl = `ws://localhost:8000/ws/incidents/${incidentId}`;
+  const wsBaseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+  const wsUrl = `${wsBaseUrl}/ws/incidents/${incidentId}`;
   const ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
