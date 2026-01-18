@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Optional
 from datetime import datetime
+import logging
 
 from ..models import (
     Incident,
@@ -14,6 +15,8 @@ from ..models import (
 from ..db.storage import storage
 from ..observability.metrics import incidents_created, active_incidents, incidents_resolved
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
 
@@ -24,6 +27,8 @@ async def create_incident(
 ) -> Incident:
     """Create a new incident and trigger AI analysis"""
     try:
+        logger.info(f"Creating new incident: {incident_data.title}")
+
         # Create incident
         incident = Incident(
             title=incident_data.title,
@@ -36,7 +41,9 @@ async def create_incident(
 
         # Save to storage
         storage.create_incident(incident)
+        logger.info(f"Incident created successfully: {incident.id}")
     except Exception as e:
+        logger.error(f"Failed to create incident: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create incident: {str(e)}")
 
     try:
@@ -60,8 +67,7 @@ async def create_incident(
             status=incident.status.value
         ).inc()
     except Exception as e:
-        # Log error but don't fail the request
-        print(f"Warning: Failed to update timeline or metrics: {e}")
+        logger.warning(f"Failed to update timeline or metrics: {e}")
 
     # Trigger AI analysis in background
     # background_tasks.add_task(analyze_incident, incident.id)
