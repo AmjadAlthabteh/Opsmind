@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 from datetime import datetime
 import os
+import logging
 
 try:
     from langchain_openai import ChatOpenAI
@@ -9,12 +10,13 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
-    print("LangChain not available. AI Commander will use fallback mode.")
 
 from ..models import Incident, Event, Action, ActionStatus, TimelineEntry, TimelineEntryType
 from ..db.storage import storage
 from ..observability.metrics import ai_analysis_duration, ai_suggestions_generated
 import time
+
+logger = logging.getLogger(__name__)
 
 
 class AICommander:
@@ -24,16 +26,26 @@ class AICommander:
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
 
         if LANGCHAIN_AVAILABLE and self.api_key:
-            self.llm = ChatOpenAI(
-                model="gpt-4",
-                temperature=0.3,
-                openai_api_key=self.api_key
-            )
-            self.enabled = True
+            try:
+                self.llm = ChatOpenAI(
+                    model="gpt-4",
+                    temperature=0.3,
+                    openai_api_key=self.api_key,
+                    request_timeout=60  # 60 second timeout for AI requests
+                )
+                self.enabled = True
+                logger.info("AI Commander initialized with OpenAI")
+            except Exception as e:
+                logger.error(f"Failed to initialize AI Commander: {e}")
+                self.llm = None
+                self.enabled = False
         else:
             self.llm = None
             self.enabled = False
-            print("AI Commander disabled: LangChain or API key not available")
+            if not LANGCHAIN_AVAILABLE:
+                logger.info("AI Commander using fallback mode: LangChain not available")
+            elif not self.api_key:
+                logger.info("AI Commander using fallback mode: OpenAI API key not configured")
 
     async def analyze_incident(self, incident_id: str) -> Dict:
         """Perform comprehensive incident analysis"""
@@ -112,7 +124,7 @@ class AICommander:
             return analysis
 
         except Exception as e:
-            print(f"AI analysis error: {e}")
+            logger.error(f"AI analysis failed, using fallback: {e}")
             return self._fallback_analysis(incident, events)
 
     def _build_context(self, incident: Incident, events: List[Event]) -> str:
