@@ -10,10 +10,43 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout for all requests
 });
 
-// Add response interceptor for better error handling
+// Add request interceptor for retry logic
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
+api.interceptors.request.use(
+  (config) => {
+    config.metadata = { startTime: Date.now() };
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Add response interceptor for better error handling and retry logic
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    retryCount = 0; // Reset on success
+    return response;
+  },
+  async (error) => {
+    const { config } = error;
+
+    // Retry logic for network errors and 5xx server errors
+    if (
+      config &&
+      retryCount < MAX_RETRIES &&
+      (!error.response || error.response.status >= 500)
+    ) {
+      retryCount++;
+      console.warn(`Retrying request (${retryCount}/${MAX_RETRIES})...`);
+
+      // Exponential backoff: 1s, 2s, 4s
+      await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount - 1) * 1000));
+
+      return api(config);
+    }
+
+    retryCount = 0;
     const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred';
     console.error('API Error:', errorMessage);
     return Promise.reject(new Error(errorMessage));
