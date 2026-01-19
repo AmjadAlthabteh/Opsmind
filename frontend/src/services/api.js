@@ -100,30 +100,72 @@ export const ingestEvent = async (eventData) => {
   return response.data;
 };
 
-// WebSocket
-export const connectToIncidentRoom = (incidentId, onMessage) => {
+// WebSocket with automatic reconnection
+export const connectToIncidentRoom = (incidentId, onMessage, onConnectionChange) => {
   const wsBaseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
   const wsUrl = `${wsBaseUrl}/ws/incidents/${incidentId}`;
-  const ws = new WebSocket(wsUrl);
 
-  ws.onopen = () => {
-    console.log(`Connected to incident room: ${incidentId}`);
+  let ws;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  let reconnectTimeout;
+
+  const connect = () => {
+    try {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log(`Connected to incident room: ${incidentId}`);
+        reconnectAttempts = 0;
+        if (onConnectionChange) onConnectionChange(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          onMessage(data);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        if (onConnectionChange) onConnectionChange(false);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        if (onConnectionChange) onConnectionChange(false);
+
+        // Attempt to reconnect with exponential backoff
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+          console.log(`Reconnecting in ${backoffTime / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+
+          reconnectTimeout = setTimeout(connect, backoffTime);
+        } else {
+          console.error('Max reconnection attempts reached');
+        }
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      if (onConnectionChange) onConnectionChange(false);
+    }
   };
 
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    onMessage(data);
-  };
+  connect();
 
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
+  // Return object with disconnect method
+  return {
+    disconnect: () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.close();
+      }
+    }
   };
-
-  ws.onclose = () => {
-    console.log('WebSocket connection closed');
-  };
-
-  return ws;
 };
 
 export default api;
